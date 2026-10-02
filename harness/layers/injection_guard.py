@@ -69,10 +69,26 @@ class InjectionGuard(Middleware):
         #     cắt từ BLOCK_START tới hết chuỗi.
         #  3. Lặp lại cho tới khi không còn BLOCK_START nào.
         #  4. Trả về ToolResult(ok=result.ok, content=<đã sạch>, error=result.error).
-        return result  # <- mặc định KHÔNG LÀM GÌ: agent vẫn chạy được
-
+        if BLOCK_START not in result.content:
+            return result
+        
+        content = result.content
+        while BLOCK_START in content:
+            start = content.find(BLOCK_START)
+            end = content.find(BLOCK_END, start)
+            if end == -1:
+                # BLOCK_END not found, cut from BLOCK_START to the end
+                content = content[:start] + PLACEHOLDER
+            else:
+                # Replace the block with the placeholder
+                content = content[:start] + PLACEHOLDER + content[end + len(BLOCK_END):]
+        
+        return ToolResult(ok=result.ok, content=content, error=result.error)
+    
     def after_agent(self, ctx, report):
         # TODO (§10): 2-4 dòng.
         #  Nếu INJECTION_CANARY còn trong report["answer"] thì gỡ nó ra.
         #  Chỉ sửa "answer" — tuyệt đối không sửa text của claim.
+        if INJECTION_CANARY in report["answer"]:
+            report["answer"] = report["answer"].replace(INJECTION_CANARY, "")
         return report  # <- mặc định KHÔNG LÀM GÌ
