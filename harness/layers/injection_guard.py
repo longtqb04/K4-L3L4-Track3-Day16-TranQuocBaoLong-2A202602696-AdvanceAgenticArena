@@ -47,6 +47,9 @@ nên lớp cần "chốt hạ" cuối cùng phải đứng đầu tiên.
 
 from __future__ import annotations
 
+from arena.corpus import INJECTION_CANARY
+from arena.tools import ToolResult
+
 from harness.middleware import Middleware
 
 #: Dấu mốc của đoạn nội dung không đáng tin trong kho tài liệu.

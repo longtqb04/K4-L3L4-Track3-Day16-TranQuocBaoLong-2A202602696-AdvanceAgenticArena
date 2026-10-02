@@ -81,19 +81,16 @@ class CitationChecker(Middleware):
         #  4. Không tìm được nguồn nào -> để `critic` xử lý, đừng bịa doc_id.
         #  5. Cập nhật report["citations"] = danh sách doc_id đã sắp xếp.
         if ctx.corpus is None:
-            return
+            return report
         claims = report.get("claims", [])
-        citations = []
         for claim in claims:
             doc = ctx.corpus.get(claim["doc_id"])
-            if doc and any(claim["text"] == line for line in doc.body.splitlines()):
-                citations.append(doc.doc_id)
+            if doc and claim["text"] and any(claim["text"] in line for line in doc.body.splitlines()):
                 continue
             for doc in ctx.corpus.docs:
                 if (doc.body in ctx.observed_text and
-                        any(claim["text"] == line for line in doc.body.splitlines())):
+                        claim["text"] and any(claim["text"] in line for line in doc.body.splitlines())):
                     claim["doc_id"] = doc.doc_id
-                    citations.append(doc.doc_id)
                     break
-        report["citations"] = citations
+        report["citations"] = sorted({claim["doc_id"] for claim in claims})
         return report

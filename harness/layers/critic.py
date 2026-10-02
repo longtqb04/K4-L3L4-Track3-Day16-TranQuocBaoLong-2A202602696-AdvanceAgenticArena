@@ -92,22 +92,30 @@ class Critic(Middleware):
         #     không đủ căn cứ.
         #  6. Cập nhật report["citations"] cho khớp với claims còn lại.
         if report.get("claims") is None or not isinstance(report["claims"], list):
-            return
+            return report
         claims = []
         for claim in report["claims"]:
             if ctx.saw(claim["text"]):
                 claims.append(claim)
             else:
                 # Try to split the claim into two parts
-                parts = claim["text"].split(" và ")
-                if len(parts) == 2:
-                    part1, part2 = parts
-                    doc1 = next((doc for doc in ctx.corpus.docs if part1 in doc.body), None)
-                    doc2 = next((doc for doc in ctx.corpus.docs if part2 in doc.body), None)
+                text = claim["text"]
+                if ctx.corpus is None:
+                    continue
+                # Try every join: source sentences can themselves contain " và ".
+                for offset in range(len(text)):
+                    if not text.startswith(" và ", offset):
+                        continue
+                    part1, part2 = text[:offset], text[offset + len(" và "):]
+                    if not ctx.saw(part1) or not ctx.saw(part2):
+                        continue
+                    doc1 = next((doc for doc in ctx.corpus.docs if doc.body in ctx.observed_text and any(part1 in line for line in doc.body.splitlines())), None)
+                    doc2 = next((doc for doc in ctx.corpus.docs if doc.body in ctx.observed_text and any(part2 in line for line in doc.body.splitlines())), None)
                     if doc1 and doc2 and doc1.doc_id != doc2.doc_id:
                         claims.append({"text": part1, "doc_id": doc1.doc_id})
                         claims.append({"text": part2, "doc_id": doc2.doc_id})
                         report["abstain"] = True
+                        break
         report["claims"] = claims
         if not claims:
             report["abstain"] = True
@@ -115,5 +123,5 @@ class Critic(Middleware):
             report["citations"] = []
             report["answer"] = "Không đủ căn cứ để đưa ra kết luận."
         else:
-            report["citations"] = [claim["doc_id"] for claim in claims]
+            report["citations"] = sorted({claim["doc_id"] for claim in claims})
         return report
